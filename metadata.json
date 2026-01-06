@@ -1,0 +1,7 @@
+{
+  "name": "GeminiOS",
+  "description": "A web-based operating system simulation where a Gemini-powered AI agent acts as your co-pilot to control applications, manage settings, and assist with tasks.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
