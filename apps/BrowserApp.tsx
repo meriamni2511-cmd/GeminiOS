@@ -12,12 +12,16 @@ interface BrowserAppProps {
 const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
   const [url, setUrl] = useState('https://www.google.com/webhp?igu=1');
   const [inputUrl, setInputUrl] = useState('google.com');
+  const [homeSearchQuery, setHomeSearchQuery] = useState('');
   const [history, setHistory] = useState<string[]>(['https://www.google.com/webhp?igu=1']);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isReloading, setIsReloading] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if we are on a "home" or blank page
+  const isHomePage = url === 'about:blank' || url === 'home';
 
   useEffect(() => {
     if (windowState?.appState?.url && windowState.appState.url !== url) {
@@ -41,8 +45,8 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
                 const searchParams = new URL(newUrl).searchParams;
                 display = searchParams.get('q') || display;
             } catch(e) {}
-        } else if (display.includes('google.com/webhp')) {
-            display = 'google.com';
+        } else if (display.includes('google.com/webhp') || display === 'home') {
+            display = display === 'home' ? '' : 'google.com';
         }
         
         setInputUrl(display);
@@ -82,9 +86,17 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
     navigateTo(finalUrl);
   };
 
+  const handleHomeSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!homeSearchQuery.trim()) return;
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(homeSearchQuery)}&igu=1`;
+    navigateTo(searchUrl);
+    setHomeSearchQuery('');
+  };
+
   const goHome = () => {
-    navigateTo('https://www.google.com/webhp?igu=1');
-    setInputUrl('google.com');
+    navigateTo('home');
+    setInputUrl('');
   };
 
   const goBack = () => {
@@ -120,18 +132,17 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Position menu exactly where cursor is clicked
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
   const openInNewTab = () => {
-    window.open(url, '_blank');
+    window.open(url === 'home' ? 'https://google.com' : url, '_blank');
     setContextMenu(null);
   };
 
   const copyUrlToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(url === 'home' ? 'GeminiOS Home' : url);
       if (os) os.showNotification("URL Copied", "Link saved to clipboard.", "success");
     } catch (err) {
       console.error('Failed to copy link:', err);
@@ -189,10 +200,10 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
                title="Reload"
                onClick={handleReload}
              >
-               <i className="fa-solid fa-rotate-right text-sm ${isReloading ? 'animate-spin' : ''}"></i>
+               <i className={`fa-solid fa-rotate-right text-sm ${isReloading ? 'animate-spin' : ''}`}></i>
              </button>
              <button 
-               className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-gray-200 text-gray-700 active:scale-90 active:bg-gray-300"
+               className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 hover:bg-gray-200 text-gray-700 active:scale-90 active:bg-gray-300 ${url === 'home' ? 'text-blue-600 bg-blue-50' : ''}`}
                title="Home"
                onClick={goHome}
              >
@@ -206,6 +217,8 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
                      <i className={`fa-solid ${url.startsWith('https') ? 'fa-lock text-emerald-500' : 'fa-circle-info text-gray-400'} text-[10px]`}></i>
                   </div>
                   <input 
+                      id="browser-url-input"
+                      name="browser-url-input"
                       className="w-full bg-white border border-gray-300 rounded-lg pl-8 pr-4 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all shadow-sm"
                       value={inputUrl}
                       onChange={(e) => setInputUrl(e.target.value)}
@@ -229,26 +242,85 @@ const BrowserApp: React.FC<BrowserAppProps> = ({ windowState, os }) => {
           </div>
         </div>
         
-        {/* Webview Container */}
-        <div className="flex-1 bg-white relative overflow-hidden">
-          <iframe 
-              src={url} 
-              className={`w-full h-full border-none transition-opacity duration-300 ${isReloading ? 'opacity-0' : 'opacity-100'}`} 
-              title="Browser Content"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          />
-          
-          {isReloading && (
-             <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-2">
-                    <i className="fa-solid fa-circle-notch animate-spin text-blue-500 text-xl"></i>
-                    <span className="text-xs text-gray-500 font-medium">Refreshing...</span>
+        {/* Content Area */}
+        <div className="flex-1 bg-white relative overflow-hidden flex flex-col">
+          {isHomePage ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-gray-50 to-white"
+            >
+              <div className="w-full max-w-2xl flex flex-col items-center gap-8">
+                {/* Visual Identity */}
+                <div className="flex flex-col items-center gap-2 mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-2xl mb-2">
+                    <i className="fa-brands fa-google text-3xl text-white"></i>
+                  </div>
+                  <h2 className="text-3xl font-black tracking-tighter text-gray-900">Search GeminiOS</h2>
+                  <p className="text-gray-500 text-sm font-medium uppercase tracking-widest">Enhanced Web Intelligence</p>
                 </div>
-             </div>
+
+                {/* Main Search Input Field */}
+                <form onSubmit={handleHomeSearch} className="w-full group">
+                  <div className="relative flex items-center">
+                    <div className="absolute left-6 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                      <i className="fa-solid fa-magnifying-glass text-xl"></i>
+                    </div>
+                    <input 
+                      id="browser-home-search"
+                      name="browser-home-search"
+                      autoFocus
+                      className="w-full h-16 bg-white border border-gray-200 rounded-[2rem] pl-16 pr-24 text-lg text-gray-800 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-gray-300 font-medium"
+                      placeholder="Type your query to search the web..."
+                      value={homeSearchQuery}
+                      onChange={(e) => setHomeSearchQuery(e.target.value)}
+                    />
+                    <button 
+                      type="submit"
+                      disabled={!homeSearchQuery.trim()}
+                      className="absolute right-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white h-10 px-6 rounded-full font-bold text-sm shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </form>
+
+                {/* Suggestions / Shortcuts */}
+                <div className="flex flex-wrap justify-center gap-3 mt-4">
+                   {['Trending Tech', 'Latest News', 'AI Documentation', 'Gemini Models'].map((tag) => (
+                     <button 
+                       key={tag}
+                       onClick={() => { setHomeSearchQuery(tag); }}
+                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[11px] font-bold uppercase tracking-wider rounded-full transition-colors"
+                     >
+                       {tag}
+                     </button>
+                   ))}
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              <iframe 
+                  src={url} 
+                  className={`w-full h-full border-none transition-opacity duration-300 ${isReloading ? 'opacity-0' : 'opacity-100'}`} 
+                  title="Browser Content"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              />
+              
+              {isReloading && (
+                 <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-2">
+                        <i className="fa-solid fa-circle-notch animate-spin text-blue-500 text-xl"></i>
+                        <span className="text-xs text-gray-500 font-medium">Refreshing...</span>
+                    </div>
+                 </div>
+              )}
+            </>
           )}
         </div>
         
-        {/* Enhanced OS Context Menu */}
+        {/* Context Menu */}
         <AnimatePresence>
           {contextMenu && (
             <motion.div 

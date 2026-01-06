@@ -34,6 +34,8 @@ const YouTubeApp: React.FC<YouTubeAppProps> = ({ os }) => {
           
           <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-4 flex">
               <input 
+                  id="youtube-search-field"
+                  name="youtube-search-field"
                   className="w-full bg-[#121212] border border-white/10 rounded-l-full px-4 py-1.5 focus:outline-none focus:border-blue-500 text-sm"
                   placeholder="Search"
                   value={search}

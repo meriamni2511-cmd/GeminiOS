@@ -9,7 +9,9 @@ export enum AppID {
   PHOTOS = 'photos',
   YOUTUBE = 'youtube',
   GMAIL = 'gmail',
-  ABOUT = 'about'
+  ABOUT = 'about',
+  FILES = 'files',
+  WEATHER = 'weather'
 }
 
 export interface UserProfile {
@@ -50,6 +52,8 @@ export interface FileSystemFile {
   name: string;
   content: string;
   type: 'text' | 'image';
+  size?: string;
+  modified: string;
 }
 
 export interface Notification {
@@ -80,6 +84,7 @@ export interface OSContextType {
   setTelegramConfig: (config: Partial<TelegramConfig>) => void;
   setUser: (user: Partial<UserProfile>) => void;
   saveFile: (name: string, content: string) => void;
+  deleteFile: (name: string) => void;
   readFile: (name: string) => string | undefined;
   saveMemory: (key: string, value: string) => void;
   deleteMemory: (key: string) => void;

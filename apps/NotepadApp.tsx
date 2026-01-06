@@ -261,6 +261,8 @@ const NotepadApp: React.FC<NotepadProps> = ({ os }) => {
 
       {/* Editor */}
       <textarea 
+        id="notepad-editor-main"
+        name="notepad-editor-main"
         ref={textareaRef}
         className={`flex-1 bg-transparent p-4 resize-none focus:outline-none font-mono text-sm leading-relaxed transition-opacity duration-300 ${isDraggingOver ? 'opacity-40' : 'opacity-100'}`}
         value={content}
@@ -304,8 +306,10 @@ const NotepadApp: React.FC<NotepadProps> = ({ os }) => {
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Filename</label>
+                <label htmlFor="notepad-save-filename" className="block text-[10px] uppercase tracking-wider text-gray-400 mb-1">Filename</label>
                 <input 
+                  id="notepad-save-filename"
+                  name="notepad-save-filename"
                   autoFocus
                   className="w-full bg-[#3c3c3c] border border-blue-500/30 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all text-white"
                   value={inputFileName}

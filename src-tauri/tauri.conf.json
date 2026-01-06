@@ -1,0 +1,56 @@
+
+{
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "distDir": "../dist",
+    "devPath": "http://localhost:5173"
+  },
+  "package": {
+    "productName": "GeminiOS",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": true,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "DeveloperTool",
+      "copyright": "2025 GeminiOS Corp",
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.geminios.app",
+      "longDescription": "",
+      "shortDescription": ""
+    },
+    "security": {
+      "csp": null
+    },
+    "systemTray": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": true
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "GeminiOS | Sarah AI Agent",
+        "width": 1280,
+        "height": 800,
+        "decorations": false,
+        "transparent": true
+      }
+    ]
+  }
+}

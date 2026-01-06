@@ -145,6 +145,8 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ os, onClose }) => {
         <div className="flex items-center gap-4 px-6 py-5 border-b border-white/10 bg-white/5">
           <i className="fa-solid fa-magnifying-glass text-xl text-blue-400"></i>
           <input 
+            id="global-os-search"
+            name="global-os-search"
             ref={inputRef}
             className="flex-1 bg-transparent border-none outline-none text-xl text-white placeholder:text-white/20"
             placeholder="Search apps, files, settings..."

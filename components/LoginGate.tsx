@@ -54,6 +54,8 @@ const LoginGate: React.FC<LoginGateProps> = ({ os, children }) => {
           <form onSubmit={handleNext} className="w-full space-y-4">
             <div className="relative">
               <input
+                id="login-id-email"
+                name="login-id-email"
                 autoFocus
                 type="email"
                 placeholder="Email or phone"
@@ -78,6 +80,8 @@ const LoginGate: React.FC<LoginGateProps> = ({ os, children }) => {
             </div>
             <div className="relative">
               <input
+                id="login-id-password"
+                name="login-id-password"
                 autoFocus
                 type="password"
                 placeholder="Enter your password"
@@ -88,7 +92,12 @@ const LoginGate: React.FC<LoginGateProps> = ({ os, children }) => {
               {error && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><i className="fa-solid fa-circle-exclamation"></i> {error}</p>}
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" className="w-4 h-4" />
+              <input 
+                id="login-show-password"
+                name="login-show-password"
+                type="checkbox" 
+                className="w-4 h-4" 
+              />
               <span className="text-sm dark:text-gray-300">Show password</span>
             </div>
             <div className="pt-8 flex justify-between items-center">

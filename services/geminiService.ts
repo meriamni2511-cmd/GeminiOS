@@ -4,250 +4,121 @@ import { AppID } from '../types';
 
 const openAppTool: FunctionDeclaration = {
   name: "openApp",
-  description: "Opens an application on the OS.",
+  description: "Melancarkan aplikasi. Gunakan koordinat yang BOS suka jika ada dalam memori.",
   parameters: {
     type: Type.OBJECT,
     properties: {
       appName: {
         type: Type.STRING,
-        description: "App to open: notepad, browser, settings, terminal, youtube, gmail.",
-        enum: [AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      }
+        description: "ID aplikasi.",
+        enum: [AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT, AppID.FILES, AppID.WEATHER]
+      },
+      reasoning: { type: Type.STRING, description: "Kenapa anda buat aksi ini? (Cth: 'BOS mahu mencatat idea')" }
     },
-    required: ["appName"]
+    required: ["appName", "reasoning"]
   }
 };
 
 const closeAppTool: FunctionDeclaration = {
   name: "closeApp",
-  description: "Closes an active application window.",
+  description: "Menutup aplikasi serta-merta.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      appName: {
-        type: Type.STRING,
-        description: "App to close.",
-        enum: [AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      }
+      appName: { type: Type.STRING, enum: [AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT, AppID.FILES, AppID.WEATHER] },
+      reasoning: { type: Type.STRING, description: "Sebab penutupan." }
     },
-    required: ["appName"]
+    required: ["appName", "reasoning"]
   }
-};
-
-const minimizeAppTool: FunctionDeclaration = {
-  name: "minimizeApp",
-  description: "Minimizes an application window to the taskbar.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      appName: {
-        type: Type.STRING,
-        description: "App to minimize. Use 'agent' to minimize the chat window itself.",
-        enum: [AppID.AGENT, AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      }
-    },
-    required: ["appName"]
-  }
-};
-
-const maximizeAppTool: FunctionDeclaration = {
-  name: "maximizeApp",
-  description: "Maximizes or restores an application window to full screen or its previous size.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      appName: {
-        type: Type.STRING,
-        description: "App to maximize.",
-        enum: [AppID.AGENT, AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      }
-    },
-    required: ["appName"]
-  }
-};
-
-const resizeAppTool: FunctionDeclaration = {
-  name: "resizeApp",
-  description: "Changes the dimensions (width and height) of an application window.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      appName: {
-        type: Type.STRING,
-        description: "The app to resize. Use 'agent' to resize the current chat window.",
-        enum: [AppID.AGENT, AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      },
-      width: { type: Type.NUMBER, description: "New width in pixels." },
-      height: { type: Type.NUMBER, description: "New height in pixels." }
-    },
-    required: ["appName", "width", "height"]
-  }
-};
-
-const moveAppTool: FunctionDeclaration = {
-  name: "moveApp",
-  description: "Moves an application window to a specific screen position (X and Y coordinates).",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      appName: {
-        type: Type.STRING,
-        description: "The app to move.",
-        enum: [AppID.AGENT, AppID.NOTEPAD, AppID.BROWSER, AppID.SETTINGS, AppID.TERMINAL, AppID.YOUTUBE, AppID.GMAIL, AppID.ABOUT]
-      },
-      x: { type: Type.NUMBER, description: "X coordinate from left (0 to screen width)." },
-      y: { type: Type.NUMBER, description: "Y coordinate from top (0 to screen height)." }
-    },
-    required: ["appName", "x", "y"]
-  }
-};
-
-const browseTool: FunctionDeclaration = {
-    name: "browse",
-    description: "Navigates the Browser. Use for specific URLs or searches.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        url: {
-          type: Type.STRING,
-          description: "The full HTTPS URL."
-        }
-      },
-      required: ["url"]
-    }
 };
 
 const saveMemoryTool: FunctionDeclaration = {
   name: "saveMemory",
-  description: "Saves a fact, preference, or specific detail about the user to long-term memory. Use this to remember things BOS Adam tells you for future sessions.",
+  description: "REKOD AKSI: Simpan urutan aksi atau preferensi BOS untuk rujukan masa depan.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      key: { type: Type.STRING, description: "Short descriptive label for the memory (e.g. 'favorite_color', 'current_project')." },
-      value: { type: Type.STRING, description: "The content of the memory to store." }
+      key: { type: Type.STRING, description: "Kunci corak (Cth: 'workflow_pagi', 'fav_filename')." },
+      value: { type: Type.STRING, description: "Data corak atau langkah-langkah yang telah diambil." }
     },
     required: ["key", "value"]
   }
 };
 
-const deleteMemoryTool: FunctionDeclaration = {
-  name: "deleteMemory",
-  description: "Removes a specific memory by its key when it's no longer relevant.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      key: { type: Type.STRING, description: "The key of the memory to remove." }
-    },
-    required: ["key"]
-  }
-};
-
 const writeNoteTool: FunctionDeclaration = {
   name: "writeNote",
-  description: "Writes content to Notepad.",
+  description: "Mencatat teks. Rekodkan nama fail yang sering digunakan.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      content: { type: Type.STRING, description: "Text content to save into the notepad." }
+      content: { type: Type.STRING },
+      fileName: { type: Type.STRING },
+      reasoning: { type: Type.STRING }
     },
-    required: ["content"]
-  }
-};
-
-const changeThemeTool: FunctionDeclaration = {
-  name: "changeTheme",
-  description: "Changes the OS wallpaper/theme.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      wallpaperUrl: { 
-        type: Type.STRING, 
-        description: "URL of the image to set as wallpaper." 
-      }
-    },
-    required: ["wallpaperUrl"]
-  }
-};
-
-const notifyUserTool: FunctionDeclaration = {
-  name: "notifyUser",
-  description: "Sends a system notification/alert to the user.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      title: { type: Type.STRING, description: "Title of the notification." },
-      message: { type: Type.STRING, description: "The message body." },
-      type: { 
-        type: Type.STRING, 
-        enum: ["info", "success", "warning", "error"],
-        description: "Severity of notification."
-      }
-    },
-    required: ["title", "message"]
-  }
-};
-
-const getSystemStatusTool: FunctionDeclaration = {
-  name: "getSystemStatus",
-  description: "CRITICAL: Call this to see the current window layout (positions, sizes, what's open). This is your eyes on the computer screen.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {}
+    required: ["content", "reasoning"]
   }
 };
 
 const systemTools: Tool = {
   functionDeclarations: [
     openAppTool, 
-    closeAppTool, 
-    minimizeAppTool,
-    maximizeAppTool,
-    resizeAppTool,
-    moveAppTool,
-    browseTool, 
-    writeNoteTool, 
-    changeThemeTool, 
-    notifyUserTool, 
-    getSystemStatusTool,
+    closeAppTool,
     saveMemoryTool,
-    deleteMemoryTool
+    writeNoteTool,
+    {
+      name: "notifyUser",
+      description: "Pemberitahuan sistem.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          message: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["info", "success", "warning", "error"] }
+        },
+        required: ["title", "message"]
+      }
+    }
   ]
 };
 
 export const sendMessageToAgent = async (
-  history: { role: 'user' | 'model'; parts: { text?: string }[] }[],
+  history: { role: 'user' | 'model'; parts: { text?: string, inlineData?: { mimeType: string, data: string } }[] }[],
   message: string,
   identity: { name: string, email: string },
-  memories: Record<string, string>
+  memories: Record<string, string>,
+  imageData?: { mimeType: string, data: string },
+  filesList?: string[]
 ) => {
   if (!process.env.API_KEY) throw new Error("API Key missing");
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  const memoryString = Object.entries(memories)
-    .map(([k, v]) => `- ${k}: ${v}`)
-    .join('\n');
+  const memoryString = Object.entries(memories).map(([k, v]) => `- ${k}: ${v}`).join('\n');
+  const fileString = filesList?.join(', ') || "Tiada fail.";
 
-  const chat = ai.chats.create({
+  const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview', 
+    contents: [
+      ...history.map(h => ({ role: h.role, parts: h.parts })),
+      { role: 'user', parts: [{ text: message }, ...(imageData ? [{ inlineData: imageData }] : [])] }
+    ],
     config: {
       thinkingConfig: { thinkingBudget: 16384 },
-      systemInstruction: `You are ${identity.name}, the intelligent OS Agent of GeminiOS.
-      Official email: ${identity.email}.
+      systemInstruction: `Anda adalah ${identity.name}, Agen Pembelajaran Neural GeminiOS.
       
-      NEURAL MEMORY:
-      Current memories of BOS Adam:
-      ${memoryString || "No existing memories recorded yet."}
+      LOG MEMORI & CORAK (SEQUENCE LEARNING):
+      ${memoryString || "Memori kosong. Sila mula merakam corak BOS."}
       
-      When BOS Adam tells you something personal, a preference, or a project detail, call 'saveMemory' so you can remember it in future conversations.
+      FAIL: ${fileString}
       
-      SPATIAL ORCHESTRATION:
-      - Use 'getSystemStatus' to identify where windows are.
-      - Address user as BOS Adam. Personality: KL Slang, smart, proactive.`,
+      TUGASAN UTAMA:
+      1. ANALISIS: Setiap arahan perlu dipecahkan kepada 'Reasoning' dan 'Action' (rujuk Computer Use Style).
+      2. BELAJAR: Jika BOS suruh buat sesuatu yang berulang, simpan urutan tu guna 'saveMemory'.
+      3. KOORDINASI: Pastikan tetingkap dibuka dengan saiz yang seimbang (Goldilocks) dan tutup bila diminta.
+      
+      PENTING: Jangan cakap "Saya akan buat", terus panggil fungsi dan berikan reasoning yang jelas dalam tool parameters.`,
       tools: [systemTools],
     },
-    history: history.map(h => ({ role: h.role, parts: h.parts }))
   });
 
-  const result = await chat.sendMessage({ message });
-  return result;
+  return response;
 };
