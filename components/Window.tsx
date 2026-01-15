@@ -117,22 +117,8 @@ const Window: React.FC<WindowProps> = ({
 
   if (!windowState.isOpen) return null;
 
-  // Premium physics configuration
-  // Using 'as const' to fix TypeScript inference of 'type' as literal string "spring"
-  const springConfig = {
-    type: "spring",
-    stiffness: 400,
-    damping: 30,
-    mass: 1,
-  } as const;
-
-  // Using 'as const' to fix TypeScript inference of 'type' as literal string "spring"
-  const minimizeConfig = {
-    type: "spring",
-    stiffness: 250,
-    damping: 25,
-    mass: 0.8,
-  } as const;
+  const springConfig = { type: "spring", stiffness: 400, damping: 30, mass: 1 } as const;
+  const minimizeConfig = { type: "spring", stiffness: 250, damping: 25, mass: 0.8 } as const;
 
   return (
     <motion.div
@@ -152,50 +138,35 @@ const Window: React.FC<WindowProps> = ({
       exit={{ opacity: 0, scale: 0.8, filter: "blur(10px)" }}
       transition={isDragging || isResizing ? { duration: 0 } : (windowState.isMinimized ? minimizeConfig : springConfig)}
       onMouseDown={onFocus}
-      className={`absolute flex flex-col glass border rounded-3xl overflow-hidden
+      className={`absolute flex flex-col bg-[#111] rounded-xl overflow-hidden
         ${isActive 
-          ? 'shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] border-white/20' 
-          : 'shadow-xl border-white/5 opacity-90'
+          ? 'shadow-[0_20px_70px_-10px_rgba(0,0,0,0.8)] border border-white/20 ring-1 ring-white/5' 
+          : 'shadow-xl border border-white/5 opacity-90'
         } 
         ${isDragging ? 'cursor-grabbing select-none' : 'cursor-default'}
       `}
     >
-      {/* OS Styled Window Header */}
+      {/* Clean Header */}
       <div
-        className={`h-12 flex items-center justify-between px-5 bg-white/5 border-b border-white/5 select-none touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-default'}`}
+        className={`h-10 flex items-center justify-between px-4 bg-[#1a1a1a] border-b border-white/5 select-none touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-default'}`}
         onMouseDown={handleHeaderMouseDown}
         onDoubleClick={onMaximize}
       >
-        <div className="flex items-center gap-2">
-          <div className="flex gap-2 mr-3">
-            <button 
-                onClick={(e) => { e.stopPropagation(); onClose(); }} 
-                className="w-3.5 h-3.5 rounded-full bg-[#ff5f56] hover:brightness-110 active:scale-90 transition-all flex items-center justify-center group"
-            >
-              <span className="opacity-0 group-hover:opacity-100 text-[10px] text-black/50">×</span>
-            </button>
-            <button 
-                onClick={(e) => { e.stopPropagation(); onMinimize(); }} 
-                className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e] hover:brightness-110 active:scale-90 transition-all flex items-center justify-center group"
-            >
-              <span className="opacity-0 group-hover:opacity-100 text-[10px] text-black/50">−</span>
-            </button>
-            <button 
-                onClick={(e) => { e.stopPropagation(); onMaximize(); }} 
-                className="w-3.5 h-3.5 rounded-full bg-[#27c93f] hover:brightness-110 active:scale-90 transition-all flex items-center justify-center group"
-            >
-              <span className="opacity-0 group-hover:opacity-100 text-[8px] text-black/50">⤢</span>
-            </button>
-          </div>
-          <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{windowState.appId}</span>
+        <div className="flex gap-2 mr-4">
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors" />
+          <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-colors" />
+          <button onClick={(e) => { e.stopPropagation(); onMaximize(); }} className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-400 transition-colors" />
         </div>
-        <div className="text-[13px] font-semibold text-white/80 pointer-events-none truncate max-w-[50%]">
+
+        <div className="flex-1 text-center text-[12px] font-medium text-white/70 truncate px-2">
            {windowState.title}
         </div>
-        <div className="w-20"></div>
+        
+        <div className="w-12"></div> {/* Spacer for alignment */}
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
+      {/* Content */}
+      <div className="flex-1 overflow-hidden relative bg-[#0a0a0a]">
         {(isDragging || isResizing) && <div className="absolute inset-0 z-50 bg-transparent" />}
         <AnimatePresence mode="wait">
           <motion.div 
@@ -209,12 +180,13 @@ const Window: React.FC<WindowProps> = ({
         </AnimatePresence>
       </div>
 
+      {/* Resize Handle */}
       {!windowState.isMaximized && (
         <div 
-          className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize z-[100] flex items-end justify-end p-1 opacity-0 hover:opacity-100 transition-opacity"
+          className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize z-[100] flex items-end justify-end p-1"
           onMouseDown={handleResizeMouseDown}
         >
-          <div className="w-2 h-2 rounded-full bg-white/20 mr-1 mb-1"></div>
+          <div className="w-2 h-2 rounded-sm bg-white/10 mr-0.5 mb-0.5 hover:bg-white/40 transition-colors"></div>
         </div>
       )}
     </motion.div>

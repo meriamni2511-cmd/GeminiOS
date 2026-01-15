@@ -11,7 +11,8 @@ export enum AppID {
   GMAIL = 'gmail',
   ABOUT = 'about',
   FILES = 'files',
-  WEATHER = 'weather'
+  WEATHER = 'weather',
+  BOARD = 'board'
 }
 
 export interface UserProfile {
@@ -63,6 +64,17 @@ export interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
 }
 
+export type TaskStatus = 'todo' | 'progress' | 'done';
+
+export interface Task {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: 'low' | 'medium' | 'high';
+  order: number;
+  createdAt: string;
+}
+
 export interface OSContextType {
   windows: WindowState[];
   activeWindowId: string | null;
@@ -72,6 +84,7 @@ export interface OSContextType {
   telegram: TelegramConfig;
   notifications: Notification[];
   memories: Record<string, string>;
+  tasks: Task[];
   openApp: (appId: AppID, initialState?: any) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
@@ -89,4 +102,8 @@ export interface OSContextType {
   saveMemory: (key: string, value: string) => void;
   deleteMemory: (key: string) => void;
   showNotification: (title: string, message: string, type?: Notification['type']) => void;
+  addTask: (title: string, status?: TaskStatus, priority?: 'low' | 'medium' | 'high') => void;
+  updateTask: (id: string, updates: Partial<Task>) => void;
+  moveTask: (id: string, newStatus: TaskStatus, newIndex: number) => void;
+  deleteTask: (id: string) => void;
 }

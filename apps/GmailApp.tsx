@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { OSContextType } from '../types';
 import LoginGate from '../components/LoginGate';
+import { motion } from 'framer-motion';
 
 interface GmailAppProps {
   os: OSContextType;
@@ -9,7 +10,7 @@ interface GmailAppProps {
 
 const GmailApp: React.FC<GmailAppProps> = ({ os }) => {
   const [activeTab, setActiveTab] = useState('inbox');
-  const [selectedEmail, setSelectedEmail] = useState<number | null>(null);
+  const [selectedEmailId, setSelectedEmailId] = useState<number | null>(null);
 
   const emails = [
     { id: 1, from: 'Google Cloud', subject: 'Your project GeminiOS-v2 is ready', date: '10:45 AM', snippet: 'Congratulations! Your new workspace has been successfully provisioned...', isRead: false },
@@ -19,110 +20,126 @@ const GmailApp: React.FC<GmailAppProps> = ({ os }) => {
     { id: 5, from: 'GitHub', subject: '[GeminiOS] Deployment successful', date: 'Dec 15', snippet: 'Workflow run #128 has completed successfully on main...', isRead: true },
   ];
 
+  const selectedEmail = emails.find(e => e.id === selectedEmailId);
+
   return (
     <LoginGate os={os}>
-      <div className="flex h-full bg-[#111] text-gray-200">
-        {/* Sidebar */}
-        <div className="w-64 bg-[#0a0a0a] border-r border-white/5 flex flex-col p-4 shrink-0">
-          <button className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl py-4 px-6 flex items-center gap-3 shadow-lg transition-all mb-8 font-bold">
-              <i className="fa-solid fa-pencil"></i>
-              Compose
-          </button>
+      <div className="flex h-full bg-[#1e1e1e] text-[#d4d4d4] overflow-hidden">
+        {/* Navigation Sidebar */}
+        <div className="w-56 bg-[#181818] flex flex-col border-r border-[#2b2b2b]">
+          <div className="p-4">
+             <button className="w-full bg-white text-black font-semibold rounded-xl py-3 px-4 hover:bg-gray-200 transition-colors flex items-center gap-2 shadow-sm">
+                <span className="material-symbols-outlined text-[20px]">edit</span>
+                <span>Compose</span>
+             </button>
+          </div>
           
-          <div className="space-y-1">
+          <nav className="flex-1 px-2 space-y-0.5">
               {[
-                  { id: 'inbox', icon: 'fa-inbox', label: 'Inbox', count: 1 },
-                  { id: 'starred', icon: 'fa-star', label: 'Starred', count: 0 },
-                  { id: 'sent', icon: 'fa-paper-plane', label: 'Sent', count: 0 },
-                  { id: 'drafts', icon: 'fa-file', label: 'Drafts', count: 0 },
-                  { id: 'spam', icon: 'fa-circle-exclamation', label: 'Spam', count: 12 },
+                  { id: 'inbox', icon: 'inbox', label: 'Inbox', count: 1 },
+                  { id: 'starred', icon: 'star', label: 'Starred', count: 0 },
+                  { id: 'sent', icon: 'send', label: 'Sent', count: 0 },
+                  { id: 'drafts', icon: 'draft', label: 'Drafts', count: 0 },
+                  { id: 'trash', icon: 'delete', label: 'Trash', count: 0 },
               ].map(item => (
                   <button 
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center justify-between px-4 py-2 rounded-full text-sm transition-colors ${activeTab === item.id ? 'bg-blue-600/20 text-blue-400 font-bold' : 'hover:bg-white/5 text-gray-400'}`}
+                      className={`w-full flex items-center justify-between px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === item.id ? 'bg-[#2b2b2b] text-white' : 'hover:bg-[#252525] text-gray-400'}`}
                   >
-                      <div className="flex items-center gap-4">
-                          <i className={`fa-solid ${item.icon} w-4`}></i>
+                      <div className="flex items-center gap-3">
+                          <span className={`material-symbols-outlined text-[18px] ${activeTab === item.id ? 'text-blue-400' : ''}`}>{item.icon}</span>
                           {item.label}
                       </div>
-                      {item.count > 0 && <span className="text-[10px]">{item.count}</span>}
+                      {item.count > 0 && <span className="text-xs bg-blue-600 px-1.5 rounded-full text-white">{item.count}</span>}
                   </button>
               ))}
-          </div>
-
-          <div className="mt-auto pt-4 border-t border-white/5">
-               <div className="flex items-center gap-3 px-4 py-2 opacity-50 text-xs">
-                   <i className="fa-solid fa-cloud text-blue-400"></i>
-                   <span>12.4 GB / 15 GB</span>
-               </div>
+          </nav>
+          
+          <div className="p-4 mt-auto border-t border-[#2b2b2b]">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="material-symbols-outlined text-[16px]">cloud</span>
+                  <span>12.4 GB used</span>
+              </div>
           </div>
         </div>
 
-        {/* Main Email View */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="h-14 border-b border-white/5 flex items-center px-4 justify-between bg-black/20">
-              <div className="flex items-center gap-4 text-gray-400">
-                  <i className="fa-solid fa-square-check hover:text-white cursor-pointer"></i>
-                  <i className="fa-solid fa-rotate-right hover:text-white cursor-pointer"></i>
-                  <i className="fa-solid fa-ellipsis-vertical hover:text-white cursor-pointer"></i>
-              </div>
-              <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-500">1-50 of 1,240</span>
-                  <button className="p-2 hover:bg-white/5 rounded-full"><i className="fa-solid fa-chevron-left text-[10px]"></i></button>
-                  <button className="p-2 hover:bg-white/5 rounded-full"><i className="fa-solid fa-chevron-right text-[10px]"></i></button>
-              </div>
-          </div>
+        {/* Email List */}
+        <div className={`${selectedEmailId ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 border-r border-[#2b2b2b] bg-[#1e1e1e]`}>
+            <div className="h-14 border-b border-[#2b2b2b] flex items-center px-4 justify-between shrink-0">
+                <span className="font-bold text-sm text-white">Inbox</span>
+                <span className="material-symbols-outlined text-gray-500 text-[18px] cursor-pointer hover:text-white">filter_list</span>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+                {emails.map(email => (
+                    <div 
+                        key={email.id}
+                        onClick={() => setSelectedEmailId(email.id)}
+                        className={`p-4 border-b border-[#2b2b2b] cursor-pointer hover:bg-[#252525] transition-colors ${selectedEmailId === email.id ? 'bg-[#26282e] border-l-2 border-l-blue-500' : 'border-l-2 border-l-transparent'}`}
+                    >
+                        <div className="flex justify-between items-baseline mb-1">
+                            <span className={`text-sm truncate pr-2 ${!email.isRead ? 'font-bold text-white' : 'font-medium text-gray-300'}`}>{email.from}</span>
+                            <span className="text-[10px] text-gray-500 shrink-0">{email.date}</span>
+                        </div>
+                        <div className={`text-xs mb-1 truncate ${!email.isRead ? 'font-bold text-gray-200' : 'text-gray-400'}`}>{email.subject}</div>
+                        <div className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{email.snippet}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
 
-          <div className="flex-1 overflow-y-auto">
-              {emails.map(email => (
-                  <div 
-                      key={email.id}
-                      onClick={() => setSelectedEmail(email.id)}
-                      className={`group flex items-center px-4 py-2.5 border-b border-white/5 cursor-pointer transition-colors ${!email.isRead ? 'bg-white/[0.03] text-white font-bold' : 'hover:bg-white/[0.02] text-gray-400'}`}
-                  >
-                      <div className="flex items-center gap-3 shrink-0 mr-4">
-                          <i className="fa-regular fa-square text-gray-600 group-hover:text-gray-400"></i>
-                          <i className="fa-regular fa-star text-gray-600 hover:text-yellow-500"></i>
-                      </div>
-                      <div className="w-48 truncate mr-4">{email.from}</div>
-                      <div className="flex-1 truncate">
-                          <span className={!email.isRead ? 'text-white' : 'text-gray-300'}>{email.subject}</span>
-                          <span className="text-gray-500 font-normal ml-2"> - {email.snippet}</span>
-                      </div>
-                      
-                      {/* Quick Actions and Date container */}
-                      <div className="w-32 flex items-center justify-end shrink-0 relative">
-                          <div className="text-xs text-gray-500 font-normal group-hover:hidden">
-                              {email.date}
-                          </div>
-                          <div className="hidden group-hover:flex items-center gap-1">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); console.log('Reply to', email.from); }}
-                                title="Reply" 
-                                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all active:scale-90"
-                              >
-                                  <i className="fa-solid fa-reply text-[10px]"></i>
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); console.log('Forward', email.subject); }}
-                                title="Forward" 
-                                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all active:scale-90"
-                              >
-                                  <i className="fa-solid fa-share text-[10px]"></i>
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); console.log('Delete', email.id); }}
-                                title="Delete" 
-                                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-red-400 transition-all active:scale-90"
-                              >
-                                  <i className="fa-solid fa-trash text-[10px]"></i>
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-              ))}
-          </div>
+        {/* Reading Pane */}
+        <div className={`${!selectedEmailId ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-[#1e1e1e] relative`}>
+            {selectedEmail ? (
+                <>
+                    {/* Reading Header */}
+                    <div className="h-14 border-b border-[#2b2b2b] flex items-center justify-between px-6 shrink-0 bg-[#1e1e1e]">
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setSelectedEmailId(null)} className="md:hidden material-symbols-outlined text-gray-400">arrow_back</button>
+                            <div className="flex gap-2">
+                                <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2b2b2b] text-gray-400 hover:text-white" title="Archive"><span className="material-symbols-outlined text-[18px]">archive</span></button>
+                                <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2b2b2b] text-gray-400 hover:text-white" title="Delete"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                                <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2b2b2b] text-gray-400 hover:text-white" title="Mark Unread"><span className="material-symbols-outlined text-[18px]">mail</span></button>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2b2b2b] text-gray-400 hover:text-white"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
+                            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#2b2b2b] text-gray-400 hover:text-white"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
+                        </div>
+                    </div>
+
+                    {/* Email Content */}
+                    <div className="flex-1 overflow-y-auto p-8">
+                        <h2 className="text-xl font-semibold text-white mb-6">{selectedEmail.subject}</h2>
+                        <div className="flex items-start justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                                    {selectedEmail.from.charAt(0)}
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-white">{selectedEmail.from}</div>
+                                    <div className="text-xs text-gray-400">to me</div>
+                                </div>
+                            </div>
+                            <div className="text-xs text-gray-500">{selectedEmail.date}</div>
+                        </div>
+                        
+                        <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-line border-t border-[#2b2b2b] pt-6">
+                            {`Hi Adam,\n\n${selectedEmail.snippet}\n\nWe are excited to see what you build with the new capabilities. The system has been optimized for low-latency neural operations and enhanced context retention.\n\nPlease check the attached documentation for the new API endpoints.\n\nBest regards,\nThe GeminiOS Team`}
+                        </div>
+
+                        <div className="mt-8 flex gap-3">
+                            <button className="px-4 py-2 border border-[#3e3e3e] rounded-full text-sm text-gray-300 hover:bg-[#2b2b2b] transition-colors">Reply</button>
+                            <button className="px-4 py-2 border border-[#3e3e3e] rounded-full text-sm text-gray-300 hover:bg-[#2b2b2b] transition-colors">Forward</button>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+                    <span className="material-symbols-outlined text-6xl opacity-20 mb-4">mail</span>
+                    <p className="text-sm">Select an email to read</p>
+                </div>
+            )}
         </div>
       </div>
     </LoginGate>

@@ -44,7 +44,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ os, onClose }) => {
 
     const list: SearchResult[] = [];
 
-    // Search Apps
+    // --- Search Apps ---
     apps.forEach(app => {
       if (app.label.toLowerCase().includes(q)) {
         list.push({
@@ -62,22 +62,49 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ os, onClose }) => {
       }
     });
 
-    // Search Files
-    // Added explicit type for Object.entries to fix 'unknown' type error for file variable
+    // --- Search Files (Enhanced with Date & Extension Logic) ---
+    const checkDateMatch = (dateString: string, query: string): boolean => {
+      const date = new Date(dateString);
+      const now = new Date();
+      
+      // Check for year match (e.g. "2024")
+      if (query.match(/^\d{4}$/) && date.getFullYear().toString() === query) return true;
+      
+      // Natural language checks
+      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const fileTime = startOfDay(date);
+      const todayTime = startOfDay(now);
+      
+      if (query === 'today' && fileTime === todayTime) return true;
+      
+      const yesterdayTime = new Date(todayTime);
+      yesterdayTime.setDate(yesterdayTime.getDate() - 1);
+      if (query === 'yesterday' && fileTime === yesterdayTime.getTime()) return true;
+
+      return false;
+    };
+
     (Object.entries(os.files) as [string, FileSystemFile][]).forEach(([name, file]) => {
-      if (name.toLowerCase().includes(q)) {
+      const isNameMatch = name.toLowerCase().includes(q);
+      const isExtMatch = name.toLowerCase().endsWith(q.startsWith('.') ? q : `.${q}`);
+      const isDateMatch = checkDateMatch(file.modified, q);
+      const isContentMatch = file.content.toLowerCase().includes(q);
+
+      if (isNameMatch || isExtMatch || isDateMatch || (q.length > 4 && isContentMatch)) {
+        let desc = 'Document File';
+        if (isDateMatch) desc = `Modified: ${new Date(file.modified).toLocaleDateString()}`;
+        if (isContentMatch && !isNameMatch) desc = 'Matches content';
+
         list.push({
           id: `file-${name}`,
           type: 'file',
           title: name,
-          description: 'Document File',
+          description: desc,
           icon: file.type === 'image' ? 'fa-image' : 'fa-file-lines',
           color: 'bg-gray-600',
           action: () => {
             if (file.type === 'text') {
               os.openApp(AppID.NOTEPAD);
-              // NotepadApp currently just reads 'note.txt' or last active from FS
-              // But we can trigger a signal if NotepadApp was reactive to a specific file prop
               os.showNotification("File Selected", `Opening ${name} in editor...`, "info");
             }
             onClose();
@@ -86,18 +113,23 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ os, onClose }) => {
       }
     });
 
-    // Search Settings keywords
+    // --- Search Settings (Enhanced with Keywords) ---
     const settingsKeywords = [
-      { k: 'wallpaper', t: 'Change Wallpaper', d: 'Desktop background settings' },
-      { k: 'theme', t: 'Dark Mode', d: 'Appearance settings' },
-      { k: 'telegram', t: 'Link Telegram Bot', d: 'Remote control configuration' },
-      { k: 'name', t: 'Change Agent Name', d: 'Identity settings' },
+      { k: ['wallpaper', 'background', 'bg'], t: 'Change Wallpaper', d: 'Desktop background settings' },
+      { k: ['theme', 'dark', 'light', 'color', 'mode'], t: 'Appearance', d: 'Toggle dark mode & accent colors' },
+      { k: ['telegram', 'bot', 'connect', 'chat'], t: 'Telegram Link', d: 'Configure remote neural link' },
+      { k: ['name', 'profile', 'user', 'avatar', 'identity'], t: 'User Profile', d: 'Identity & Account settings' },
+      { k: ['notification', 'alert', 'quiet'], t: 'Notifications', d: 'Manage system alerts' },
+      { k: ['privacy', 'security', 'lock'], t: 'Privacy & Security', d: 'Biometric & Data controls' }
     ];
 
     settingsKeywords.forEach(set => {
-      if (set.k.includes(q) || set.t.toLowerCase().includes(q)) {
+      const isKeywordMatch = set.k.some(keyword => keyword.includes(q) || q.includes(keyword));
+      const isTitleMatch = set.t.toLowerCase().includes(q);
+      
+      if (isKeywordMatch || isTitleMatch) {
         list.push({
-          id: `setting-${set.k}`,
+          id: `setting-${set.t}`,
           type: 'setting',
           title: set.t,
           description: set.d,
@@ -149,7 +181,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ os, onClose }) => {
             name="global-os-search"
             ref={inputRef}
             className="flex-1 bg-transparent border-none outline-none text-xl text-white placeholder:text-white/20"
-            placeholder="Search apps, files, settings..."
+            placeholder="Search 'today', '.txt', 'theme'..."
             value={query}
             onChange={e => {
               setQuery(e.target.value);

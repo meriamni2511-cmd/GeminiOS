@@ -11,7 +11,8 @@ export interface TelegramMessage {
 export const deleteTelegramWebhook = async (token: string) => {
   if (!token) return;
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`);
+    // drop_pending_updates=false ensures we don't lose messages while fixing the connection
+    const response = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=false`);
     return await response.json();
   } catch (error) {
     console.error("Telegram deleteWebhook error:", error);
@@ -31,7 +32,9 @@ export const fetchTelegramUpdates = async (
     );
     
     if (response.status === 409) {
-      console.warn("Telegram 409 Conflict: Webhook is active or multiple instances detected. Attempting to clear...");
+      console.warn("Telegram 409 Conflict: Webhook is active. Attempting to delete webhook to restore polling...");
+      // Auto-heal: Delete the webhook so long-polling can resume
+      await deleteTelegramWebhook(token);
       return [];
     }
     
@@ -41,7 +44,7 @@ export const fetchTelegramUpdates = async (
     return [];
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.log("Telegram polling aborted.");
+      // Polling aborted intentionally (component unmount or re-render)
     } else {
       console.error("Telegram polling error:", error);
     }

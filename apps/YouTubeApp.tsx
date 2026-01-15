@@ -1,15 +1,37 @@
 
-import React, { useState } from 'react';
-import { OSContextType } from '../types';
+import React, { useState, useEffect } from 'react';
+import { OSContextType, WindowState } from '../types';
 import LoginGate from '../components/LoginGate';
 
 interface YouTubeAppProps {
   os: OSContextType;
+  windowState?: WindowState;
 }
 
-const YouTubeApp: React.FC<YouTubeAppProps> = ({ os }) => {
+const YouTubeApp: React.FC<YouTubeAppProps> = ({ os, windowState }) => {
   const [search, setSearch] = useState('');
   const [videoId, setVideoId] = useState('dQw4w9WgXcQ'); // Default placeholder
+
+  // Effect to handle search queries coming from the AI Agent (via windowState)
+  useEffect(() => {
+    if (windowState?.appState?.searchQuery) {
+        const query = windowState.appState.searchQuery;
+        setSearch(query);
+        // Simulate a search action by setting a pseudo-random video ID or specific one if implied
+        // In a real app, this would fetch from YouTube API.
+        // For now, we simulate finding "something" related to the search
+        console.log("Agent requested YouTube Search for:", query);
+        
+        // Simple hash to change video based on query length/char to simulate responsiveness
+        if (query.toLowerCase().includes("world")) {
+             setVideoId("L_jWHffIx5E"); // Placeholder for "In The World" type content
+        } else if (query.toLowerCase().includes("tech")) {
+             setVideoId("lxRwEPvL-mQ"); 
+        } else {
+             // Just reload default or keep current if generic
+        }
+    }
+  }, [windowState?.appState?.searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +40,8 @@ const YouTubeApp: React.FC<YouTubeAppProps> = ({ os }) => {
         const id = search.split('v=')[1]?.split('&')[0];
         if (id) setVideoId(id);
     } else {
+        // If it's a keyword search, we just pretend to find a video for now
+        // In a real implementation, this would list results
         setVideoId('L_jWHffIx5E');
     }
   };
@@ -64,7 +88,7 @@ const YouTubeApp: React.FC<YouTubeAppProps> = ({ os }) => {
                   <iframe 
                       width="100%" 
                       height="100%" 
-                      src={`https://www.youtube.com/embed/${videoId}?autoplay=0`}
+                      src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
                       title="YouTube video player" 
                       frameBorder="0" 
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -72,7 +96,7 @@ const YouTubeApp: React.FC<YouTubeAppProps> = ({ os }) => {
                   />
               </div>
               <div>
-                  <h1 className="text-xl font-bold line-clamp-2">Premium Experience with GeminiOS AI Agent integration</h1>
+                  <h1 className="text-xl font-bold line-clamp-2">Playing result for: {search || "Featured Video"}</h1>
                   <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gray-800"></div>

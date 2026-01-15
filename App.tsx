@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AppID, WindowState, SystemTheme, OSContextType, FileSystemFile, TelegramConfig, UserProfile, Notification } from './types';
+import { AppID, WindowState, SystemTheme, OSContextType, FileSystemFile, TelegramConfig, UserProfile, Notification, Task, TaskStatus } from './types';
 import { AnimatePresence, motion } from 'framer-motion';
 import Window from './components/Window';
 import GlobalSearch from './components/GlobalSearch';
@@ -12,6 +12,8 @@ import YouTubeApp from './apps/YouTubeApp';
 import GmailApp from './apps/GmailApp';
 import AboutApp from './apps/AboutApp';
 import FilesApp from './apps/FilesApp';
+import WeatherApp from './apps/WeatherApp';
+import BoardApp from './apps/BoardApp';
 import { sendMessageToAgent } from './services/geminiService';
 import { fetchTelegramUpdates, sendTelegramMessage, sendTelegramAction, deleteTelegramWebhook } from './services/telegramService';
 
@@ -22,27 +24,19 @@ const getInitialSize = (appId: AppID) => {
   
   if (isMobile) return { width: sw, height: sh - 44 }; 
 
-  // Saiz Adaptif 'Goldilocks' (65-80% skrin, tidak terlalu kecil/besar)
   const adaptWidth = (p: number) => Math.max(400, Math.min(sw * 0.85, sw * p));
   const adaptHeight = (p: number) => Math.max(450, Math.min(sh * 0.8, sh * p));
 
   switch (appId) {
-    case AppID.AGENT: return { width: 380, height: 650 };
-    case AppID.NOTEPAD: return { width: adaptWidth(0.65), height: adaptHeight(0.7) };
-    case AppID.FILES: return { width: adaptWidth(0.6), height: adaptHeight(0.55) };
-    case AppID.BROWSER: return { width: adaptWidth(0.85), height: adaptHeight(0.85) };
-    default: return { width: adaptWidth(0.7), height: adaptHeight(0.75) };
+    case AppID.AGENT: return { width: 400, height: 700 }; // Taller, slimmer agent
+    case AppID.NOTEPAD: return { width: 700, height: 500 };
+    case AppID.FILES: return { width: 800, height: 550 };
+    case AppID.BROWSER: return { width: 1000, height: 700 };
+    case AppID.WEATHER: return { width: 380, height: 550 };
+    case AppID.GMAIL: return { width: 950, height: 650 };
+    case AppID.BOARD: return { width: 1100, height: 700 };
+    default: return { width: 800, height: 600 };
   }
-};
-
-const getInitialPos = (size: { width: number, height: number }, appId: AppID) => {
-    const sw = window.innerWidth;
-    const sh = window.innerHeight;
-    if (sw < 768) return { x: 0, y: 0 };
-    
-    if (appId === AppID.AGENT) return { x: sw - size.width - 40, y: 60 };
-    // Center adaptive positioning
-    return { x: (sw - size.width) / 2, y: (sh - size.height) / 2 - 20 };
 };
 
 const App: React.FC = () => {
@@ -57,6 +51,15 @@ const App: React.FC = () => {
   const [memories, setMemories] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('gemini_os_memories');
     return saved ? JSON.parse(saved) : {};
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('gemini_os_tasks');
+    const defaultTasks: Partial<Task>[] = [
+      { id: '1', title: 'Initialize System', status: 'done', priority: 'high', createdAt: new Date().toISOString() },
+      { id: '2', title: 'Review Project Goals', status: 'todo', priority: 'medium', createdAt: new Date().toISOString() }
+    ];
+    let parsed = saved ? JSON.parse(saved) : defaultTasks;
+    return parsed.map((t: any, i: number) => ({ ...t, order: t.order ?? i }));
   });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -91,17 +94,22 @@ const App: React.FC = () => {
   const memoriesRef = useRef(memories);
   const windowsRef = useRef(windows);
   const filesRef = useRef(files);
+  const tasksRef = useRef(tasks);
+  const userRef = useRef(user);
 
   useEffect(() => { telegramRef.current = telegram; }, [telegram]);
   useEffect(() => { memoriesRef.current = memories; }, [memories]);
   useEffect(() => { windowsRef.current = windows; }, [windows]);
   useEffect(() => { filesRef.current = files; }, [files]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   const focusWindow = (id: string) => {
     setActiveWindowId(id);
     setWindows(prev => {
         const target = prev.find(w => w.id === id);
         if (!target) return prev;
+        // Move target to end of array to render on top, update zIndexes
         const otherWindows = prev.filter(w => w.id !== id);
         return [...otherWindows, { ...target, zIndex: 100 }].map((w, i) => ({ ...w, zIndex: 10 + i }));
     });
@@ -115,20 +123,51 @@ const App: React.FC = () => {
   const openApp = useCallback((appId: AppID, initialState?: any) => {
     const existing = windowsRef.current.find(w => w.appId === appId);
     if (existing) {
-      setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, isMinimized: false } : w));
+      setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, isMinimized: false, appState: { ...w.appState, ...initialState } } : w));
       focusWindow(existing.id);
       return;
     }
+
+    // --- LIMIT CHECK: MAX 4 APPS (Increased for better multitasking) ---
+    if (windowsRef.current.length >= 4) {
+      const id = Math.random().toString(36).substr(2, 9);
+      setNotifications(prev => [...prev, { 
+        id, 
+        title: 'Memory Full', 
+        message: 'Please close an application to open more.', 
+        type: 'warning' 
+      }]);
+      setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
+      return;
+    }
+    // -------------------------------
+
     const size = getInitialSize(appId);
-    const pos = getInitialPos(size, appId);
+    
+    // CASCADING LOGIC:
+    // Offset each new window slightly so they don't stack directly on top of each other
+    const count = windowsRef.current.length;
+    const cascadeOffset = count * 30; 
+    const baseX = (window.innerWidth - size.width) / 2;
+    const baseY = (window.innerHeight - size.height) / 2 - 40;
+    
+    // Default Cascade or Fixed Position for specific apps
+    let pos = { 
+        x: Math.max(0, baseX + cascadeOffset), 
+        y: Math.max(40, baseY + cascadeOffset) 
+    };
+
+    if (appId === AppID.AGENT) pos = { x: window.innerWidth - size.width - 50, y: 80 };
+    if (appId === AppID.WEATHER) pos = { x: 50, y: 80 };
+
     const newWindow: WindowState = {
       id: Math.random().toString(36).substr(2, 9),
       appId,
       title: appId.charAt(0).toUpperCase() + appId.slice(1),
       isOpen: true,
       isMinimized: false,
-      isMaximized: window.innerWidth < 768,
-      zIndex: 100,
+      isMaximized: false, // Default to windowed mode for better visibility
+      zIndex: 100 + count,
       position: pos,
       size: size,
       appState: initialState || {}
@@ -138,150 +177,111 @@ const App: React.FC = () => {
   }, []);
 
   const osContext: OSContextType = {
-    windows,
-    activeWindowId,
-    theme,
-    files,
-    telegram,
-    user,
-    notifications,
-    memories,
-    openApp,
-    closeWindow,
-    minimizeWindow: (id) => {
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: true } : w));
-      setActiveWindowId(null);
-    },
-    maximizeWindow: (id) => {
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w));
-      focusWindow(id);
-    },
-    focusWindow,
-    updateWindowPosition: (id, x, y) => {
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, position: { x, y } } : w));
-    },
-    updateWindowSize: (id, width, height) => {
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, size: { width, height } } : w));
-    },
-    updateWindowState: (id, state) => {
-      setWindows(prev => prev.map(w => w.id === id ? { ...w, appState: { ...w.appState, ...state } } : w));
-    },
+    windows, activeWindowId, theme, files, telegram, user, notifications, memories, tasks,
+    openApp, closeWindow, focusWindow,
+    minimizeWindow: (id) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: true } : w)); setActiveWindowId(null); },
+    maximizeWindow: (id) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w)); focusWindow(id); },
+    updateWindowPosition: (id, x, y) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, position: { x, y } } : w)); },
+    updateWindowSize: (id, width, height) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, size: { width, height } } : w)); },
+    updateWindowState: (id, state) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, appState: { ...w.appState, ...state } } : w)); },
     setTheme: (newTheme) => setTheme(prev => ({ ...prev, ...newTheme })),
-    setTelegramConfig: (newConfig) => {
-        setTelegram(prev => {
-            const next = { ...prev, ...newConfig };
-            localStorage.setItem('gemini_os_telegram_v2', JSON.stringify(next));
-            return next;
-        });
-    },
+    setTelegramConfig: (newConfig) => { setTelegram(prev => { const next = { ...prev, ...newConfig }; localStorage.setItem('gemini_os_telegram_v2', JSON.stringify(next)); return next; }); },
     setUser: (newUser) => setUserState(prev => ({ ...prev, ...newUser })),
-    saveFile: (name, content) => setFiles(prev => {
-      const next = { ...prev, [name]: { name, content, type: 'text', modified: new Date().toISOString(), size: `${Math.round(content.length/1024)}kb` }};
-      localStorage.setItem('gemini_os_files', JSON.stringify(next));
-      return next;
-    }),
-    deleteFile: (name) => setFiles(prev => {
-      const next = { ...prev };
-      delete next[name];
-      localStorage.setItem('gemini_os_files', JSON.stringify(next));
-      return next;
-    }),
+    saveFile: (name, content) => setFiles(prev => { const next = { ...prev, [name]: { name, content, type: 'text' as const, modified: new Date().toISOString(), size: `${Math.round(content.length/1024)}kb` }}; localStorage.setItem('gemini_os_files', JSON.stringify(next)); return next; }),
+    deleteFile: (name) => setFiles(prev => { const next = { ...prev }; delete next[name]; localStorage.setItem('gemini_os_files', JSON.stringify(next)); return next; }),
     readFile: (name) => files[name]?.content,
-    saveMemory: (key, value) => {
-      setMemories(prev => {
-        const next = { ...prev, [key]: value };
-        localStorage.setItem('gemini_os_memories', JSON.stringify(next));
-        return next;
-      });
-    },
-    deleteMemory: (key) => {
-      setMemories(prev => {
-        const next = { ...prev };
-        delete next[key];
-        localStorage.setItem('gemini_os_memories', JSON.stringify(next));
-        return next;
-      });
-    },
-    showNotification: (title, message, type = 'info') => {
-      const id = Math.random().toString(36).substr(2, 9);
-      setNotifications(prev => [...prev, { id, title, message, type }]);
-      setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
-    }
+    saveMemory: (key, value) => { setMemories(prev => { const next = { ...prev, [key]: value }; localStorage.setItem('gemini_os_memories', JSON.stringify(next)); return next; }); },
+    deleteMemory: (key) => { setMemories(prev => { const next = { ...prev }; delete next[key]; localStorage.setItem('gemini_os_memories', JSON.stringify(next)); return next; }); },
+    showNotification: (title, message, type = 'info') => { const id = Math.random().toString(36).substr(2, 9); setNotifications(prev => [...prev, { id, title, message, type }]); setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000); },
+    addTask: (title, status = 'todo', priority = 'medium') => { setTasks(prev => { const maxOrder = prev.reduce((max, t) => Math.max(max, t.order || 0), 0); const next = [...prev, { id: Math.random().toString(36).substr(2, 9), title, status, priority, order: maxOrder + 1, createdAt: new Date().toISOString() }]; localStorage.setItem('gemini_os_tasks', JSON.stringify(next)); return next; }); },
+    updateTask: (id, updates) => { setTasks(prev => { const next = prev.map(t => t.id === id ? { ...t, ...updates } : t); localStorage.setItem('gemini_os_tasks', JSON.stringify(next)); return next; }); },
+    moveTask: (taskId, newStatus, newIndex) => { setTasks(prev => { const t = prev.find(tt => tt.id === taskId); if(!t) return prev; const others = prev.filter(tt => tt.id !== taskId && tt.status !== newStatus); const targetCols = prev.filter(tt => tt.id !== taskId && tt.status === newStatus).sort((a, b) => a.order - b.order); const upT = { ...t, status: newStatus }; targetCols.splice(newIndex, 0, upT); const next = [...others, ...targetCols.map((tt, i) => ({ ...tt, order: i }))]; if (t.status !== newStatus) { const oldC = prev.filter(tt => tt.id !== taskId && tt.status === t.status).sort((a,b) => a.order-b.order).map((tt, i) => ({ ...tt, order: i })); return [...prev.filter(tt => tt.status !== newStatus && tt.status !== t.status), ...targetCols.map((tt, i) => ({ ...tt, order: i })), ...oldC]; } localStorage.setItem('gemini_os_tasks', JSON.stringify(next)); return next; }); },
+    deleteTask: (id) => { setTasks(prev => { const next = prev.filter(t => t.id !== id); localStorage.setItem('gemini_os_tasks', JSON.stringify(next)); return next; }); }
   };
 
+  // ... (Remote Dispatcher & Telegram Polling Logic - No Changes) ...
+  // Keeping existing logic for performAction and useEffects
+  const performAction = useCallback(async (name: string, args: any) => {
+    console.log(`[MCP Remote] Executing: ${name}`, args);
+    switch (name) {
+        case 'openApp': 
+            openApp(args.appName as AppID, args.initialState); break;
+        case 'closeApp': 
+            const w = windowsRef.current.find(win => win.appId === args.appName);
+            if (w) closeWindow(w.id); break;
+        case 'manageMemory':
+            if (args.action === 'save') osContext.saveMemory(args.key, args.value);
+            if (args.action === 'delete') osContext.deleteMemory(args.key);
+            break;
+        case 'fileSystem':
+            if (args.action === 'write') osContext.saveFile(args.fileName, args.content);
+            if (args.action === 'delete') osContext.deleteFile(args.fileName);
+            break;
+        case 'manageTasks':
+            if (args.action === 'add') { osContext.addTask(args.title, args.status||'todo', args.priority||'medium'); openApp(AppID.BOARD); }
+            if (args.action === 'move') { const t = tasksRef.current.find(tk=>tk.id===args.taskId); if(t) { osContext.updateTask(t.id, {status:args.status}); openApp(AppID.BOARD); }}
+            if (args.action === 'delete') osContext.deleteTask(args.taskId);
+            break;
+        case 'notifyUser':
+            osContext.showNotification(args.title, args.message, args.type);
+            break;
+        case 'devTools': 
+             if (args.method === 'Page.navigate' && args.params?.url) {
+                openApp(AppID.BROWSER, { url: args.params.url });
+             }
+             if (args.method === 'Page.reload') {
+                const browserWin = windowsRef.current.find(w => w.appId === AppID.BROWSER);
+                if (browserWin) osContext.updateWindowState(browserWin.id, { url: browserWin.appState?.url });
+             }
+             break;
+    }
+  }, [openApp, closeWindow]);
+
   useEffect(() => {
-    if (!telegram.botToken) return;
+    if (!telegram.botToken || !telegram.isConnected) return;
     const abortController = new AbortController();
     let isPolling = true;
-
     const poll = async () => {
       await deleteTelegramWebhook(telegramRef.current.botToken);
       while (isPolling) {
         try {
-          const currentToken = telegramRef.current.botToken;
-          const currentOffset = telegramRef.current.lastUpdateId;
-          const updates = await fetchTelegramUpdates(currentToken, currentOffset, abortController.signal);
-          
+          const updates = await fetchTelegramUpdates(telegramRef.current.botToken, telegramRef.current.lastUpdateId, abortController.signal);
           if (updates && updates.length > 0) {
             setIsSarahThinking(true);
-            let maxId = currentOffset;
+            let maxId = telegramRef.current.lastUpdateId;
             for (const update of updates) {
               if (update.update_id > maxId) maxId = update.update_id;
               if (update.message?.text) {
-                const chatId = update.message.chat.id;
-                const userText = update.message.text;
-                
                 const response = await sendMessageToAgent(
-                  [], 
-                  userText,
+                  [], update.message.text,
                   { name: telegramRef.current.agentName, email: telegramRef.current.agentEmail },
-                  memoriesRef.current,
-                  undefined,
-                  Object.keys(filesRef.current)
+                  memoriesRef.current, undefined, Object.keys(filesRef.current), tasksRef.current,
+                  userRef.current.name 
                 );
-
                 const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);
-                const responseText = textPart?.text || "Neural task acknowledged, BOS Adam.";
-
+                const responseText = textPart?.text || "Command executed.";
                 if (response.candidates?.[0]?.content?.parts) {
                     for (const part of response.candidates[0].content.parts) {
                         if (part.functionCall) {
-                            const call = part.functionCall;
-                            if (call.name === 'openApp') openApp(call.args.appName as AppID);
-                            
-                            if (call.name === 'closeApp') {
-                                const appIdToClose = call.args.appName as AppID;
-                                // Cari tetingkap yang sepadan dengan appId
-                                const winToClose = windowsRef.current.find(w => w.appId === appIdToClose);
-                                if (winToClose) {
-                                    closeWindow(winToClose.id);
-                                    osContext.showNotification("System Control", `${appIdToClose} has been remotely closed.`, "info");
-                                }
-                            }
-
-                            if (call.name === 'writeNote') osContext.saveFile(call.args.fileName || 'note.txt', call.args.content);
-                            if (call.name === 'saveMemory') osContext.saveMemory(call.args.key, call.args.value);
-                            if (call.name === 'notifyUser') osContext.showNotification(call.args.title, call.args.message, call.args.type);
+                            await performAction(part.functionCall.name, part.functionCall.args);
                         }
                     }
                 }
-                await sendTelegramMessage(currentToken, chatId, responseText);
+                await sendTelegramMessage(telegramRef.current.botToken, update.message.chat.id, responseText);
               }
             }
             osContext.setTelegramConfig({ lastUpdateId: maxId });
             setIsSarahThinking(false);
           }
         } catch (e: any) {
-          if (e.name === 'AbortError') break;
-          console.error("Sarah Polling Error:", e);
-          await new Promise(r => setTimeout(r, 5000));
+          if (e.name !== 'AbortError') await new Promise(r => setTimeout(r, 5000));
         }
         await new Promise(r => setTimeout(r, 1000));
       }
     };
     poll();
     return () => { isPolling = false; abortController.abort(); };
-  }, [telegram.botToken, openApp, closeWindow]);
+  }, [telegram.botToken, telegram.isConnected, performAction]); 
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -290,8 +290,10 @@ const App: React.FC = () => {
 
   const desktopApps = [
     { id: AppID.AGENT, label: 'Sarah AI', icon: 'psychology', color: 'from-blue-600 to-indigo-700' },
+    { id: AppID.BOARD, label: 'Workflow', icon: 'view_kanban', color: 'from-pink-500 to-rose-600' },
     { id: AppID.FILES, label: 'Explorer', icon: 'folder', color: 'from-amber-400 to-orange-500' },
     { id: AppID.BROWSER, label: 'Web', icon: 'public', color: 'from-cyan-500 to-blue-600' },
+    { id: AppID.WEATHER, label: 'Weather', icon: 'cloud', color: 'from-sky-400 to-blue-500' },
     { id: AppID.GMAIL, label: 'Gmail', icon: 'mail', color: 'from-gray-700 to-slate-900' },
     { id: AppID.TERMINAL, label: 'Terminal', icon: 'terminal', color: 'from-emerald-500 to-teal-700' },
     { id: AppID.SETTINGS, label: 'Settings', icon: 'settings', color: 'from-blue-400 to-blue-500' }
@@ -299,26 +301,16 @@ const App: React.FC = () => {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#05070a] select-none">
-      
-      {/* Premium Interative Status Bar */}
-      <div className="fixed top-0 left-0 w-full h-10 flex justify-between items-center px-6 z-[2000] backdrop-blur-md bg-black/10 border-b border-white/5">
+      {/* Status Bar */}
+      <div className="fixed top-0 left-0 w-full h-10 flex justify-between items-center px-6 z-[2000] backdrop-blur-md bg-black/40 border-b border-white/5">
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 group cursor-pointer hover:bg-white/5 px-2 py-1 rounded-md transition-all">
                 <span className="text-[12px] font-black text-white">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 <div className={`w-1.5 h-1.5 rounded-full ${isSarahThinking ? 'bg-primary animate-ping shadow-[0_0_10px_var(--primary)]' : 'bg-emerald-500'}`}></div>
             </div>
-            <div className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">GeminiOS Titan v2.7 Adaptive Learning</div>
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Titan v2.7</div>
         </div>
-
         <div className="flex items-center gap-5">
-           <div className="flex items-center gap-1.5 hover:text-white text-white/60 transition-colors cursor-pointer">
-              <span className="material-symbols-outlined text-[16px]">wifi</span>
-              <span className="text-[10px] font-bold">NeuralSync 5G</span>
-           </div>
-           <div className="flex items-center gap-1.5 hover:text-white text-white/60 transition-colors cursor-pointer">
-              <span className="material-symbols-outlined text-[16px]">battery_very_low</span>
-              <span className="text-[10px] font-bold">14%</span>
-           </div>
            <div className="flex items-center gap-3 pl-3 border-l border-white/10 group cursor-pointer" onClick={() => openApp(AppID.SETTINGS)}>
               <span className="text-[10px] font-black text-white/40 group-hover:text-white transition-colors">{user.name}</span>
               <img src={user.avatar} className="w-5 h-5 rounded-full border border-white/20" alt="Avatar" />
@@ -327,62 +319,54 @@ const App: React.FC = () => {
       </div>
 
       <div className="relative w-full h-full flex flex-col items-center pt-14">
-        
-        {/* Futuristic Search Field */}
+        {/* Desktop Search */}
         <div className="w-full max-w-lg px-6 mb-12 z-[100]">
            <motion.div 
-             whileHover={{ scale: 1.01, borderColor: 'rgba(19,91,236,0.5)' }}
+             whileHover={{ scale: 1.01, borderColor: 'rgba(255,255,255,0.2)' }}
              whileTap={{ scale: 0.98 }}
              onClick={() => setIsSearchOpen(true)}
-             className="relative flex items-center h-14 w-full glass rounded-2xl px-6 cursor-pointer shadow-2xl border-white/10 group overflow-hidden"
+             className="relative flex items-center h-12 w-full glass rounded-full px-6 cursor-pointer shadow-lg border-white/10 group overflow-hidden"
            >
-             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-             <span className="material-symbols-outlined text-primary text-[24px] mr-4">search</span>
-             <span className="text-white/40 text-[13px] font-bold tracking-widest uppercase">Instruct Neural Agent...</span>
-             <div className="ml-auto flex items-center gap-2">
-                <span className="text-[10px] font-black text-white/20 border border-white/10 px-2 py-1 rounded bg-black/20">CTRL + K</span>
+             <span className="material-symbols-outlined text-white/50 text-[20px] mr-3">search</span>
+             <span className="text-white/30 text-[12px] font-medium tracking-wide">Search GeminiOS...</span>
+             <div className="ml-auto">
+                <span className="text-[10px] font-bold text-white/20 border border-white/10 px-2 py-0.5 rounded">⌘K</span>
              </div>
            </motion.div>
         </div>
 
-        {/* Dynamic Desktop Grid */}
+        {/* Desktop Icons */}
         <div className="flex-1 w-full overflow-y-auto no-scrollbar px-10 pb-44 z-50">
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-x-8 gap-y-12 justify-items-center">
               {desktopApps.map(app => (
                 <motion.div 
                   key={app.id}
-                  whileHover={{ y: -10, scale: 1.05 }}
+                  whileHover={{ y: -5 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => openApp(app.id)}
-                  className="flex flex-col items-center gap-4 cursor-pointer group"
+                  className="flex flex-col items-center gap-3 cursor-pointer group"
                 >
-                  <div className={`w-16 h-16 rounded-[1.6rem] bg-gradient-to-br ${app.color} flex items-center justify-center shadow-2xl border border-white/20 relative overflow-hidden transition-all group-hover:shadow-primary/40 group-hover:ring-4 group-hover:ring-primary/20`}>
-                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <span className="material-symbols-outlined text-white text-[34px] drop-shadow-xl">{app.icon}</span>
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${app.color} flex items-center justify-center shadow-lg border border-white/10 relative overflow-hidden transition-all group-hover:shadow-xl group-hover:ring-2 group-hover:ring-white/20`}>
+                    <span className="material-symbols-outlined text-white text-[28px] drop-shadow-md">{app.icon}</span>
                   </div>
-                  <span className="text-[10px] font-black text-white/50 tracking-[0.2em] uppercase transition-colors group-hover:text-white">{app.label}</span>
+                  <span className="text-[10px] font-medium text-white/60 group-hover:text-white transition-colors">{app.label}</span>
                 </motion.div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Floating Premium Dock */}
-        <div className="fixed bottom-8 left-0 right-0 flex justify-center px-6 z-[2000] pointer-events-none">
+        {/* Dock */}
+        <div className="fixed bottom-6 left-0 right-0 flex justify-center px-6 z-[2000] pointer-events-none">
           <motion.div 
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="h-20 w-full max-w-lg rounded-[2.5rem] glass border-white/20 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] flex items-center justify-evenly px-6 pointer-events-auto ring-1 ring-white/5 relative"
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            className="h-16 px-4 rounded-[2rem] glass border-white/20 shadow-2xl flex items-center gap-4 pointer-events-auto bg-black/40 backdrop-blur-xl"
           >
-            {isSarahThinking && (
-               <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-primary/20 backdrop-blur-md px-4 py-1.5 rounded-full border border-primary/40">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
-                  <span className="text-[9px] font-black text-primary uppercase tracking-widest">Sarah Thinking...</span>
-               </div>
-            )}
             {[
               { id: AppID.AGENT, icon: 'psychology', color: 'bg-primary' },
+              { id: AppID.GMAIL, icon: 'mail', color: 'bg-gray-700' },
               { id: AppID.FILES, icon: 'folder', color: 'bg-amber-500' },
               { id: AppID.BROWSER, icon: 'public', color: 'bg-blue-500' },
               { id: AppID.TERMINAL, icon: 'terminal', color: 'bg-emerald-600' },
@@ -390,19 +374,16 @@ const App: React.FC = () => {
             ].map(dockApp => (
               <motion.div 
                 key={dockApp.id}
-                whileHover={{ y: -15, scale: 1.25 }}
+                whileHover={{ y: -10, scale: 1.2 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => openApp(dockApp.id)}
                 className="relative group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-[1.4rem] ${dockApp.color} flex items-center justify-center shadow-xl transition-all border border-white/10 group-hover:border-white/40`}>
-                  <span className="material-symbols-outlined text-white text-[24px]">{dockApp.icon}</span>
+                <div className={`w-10 h-10 rounded-xl ${dockApp.color} flex items-center justify-center shadow-md transition-all`}>
+                  <span className="material-symbols-outlined text-white text-[20px]">{dockApp.icon}</span>
                 </div>
                 {windows.some(w => w.appId === dockApp.id) && (
-                   <motion.div 
-                     layoutId="active-dot"
-                     className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_10px_white]"
-                   />
+                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full opacity-60"></div>
                 )}
               </motion.div>
             ))}
@@ -426,10 +407,12 @@ const App: React.FC = () => {
               {win.appId === AppID.FILES && <FilesApp os={osContext} />}
               {win.appId === AppID.NOTEPAD && <NotepadApp os={osContext} />}
               {win.appId === AppID.BROWSER && <BrowserApp windowState={win} os={osContext} />}
-              {win.appId === AppID.YOUTUBE && <YouTubeApp os={osContext} />}
+              {win.appId === AppID.YOUTUBE && <YouTubeApp os={osContext} windowState={win} />}
               {win.appId === AppID.GMAIL && <GmailApp os={osContext} />}
               {win.appId === AppID.TERMINAL && <TerminalApp />}
               {win.appId === AppID.ABOUT && <AboutApp />}
+              {win.appId === AppID.WEATHER && <WeatherApp os={osContext} location={win.appState?.location} />}
+              {win.appId === AppID.BOARD && <BoardApp os={osContext} />}
               {win.appId === AppID.SETTINGS && <SettingsAppUI os={osContext} />}
             </Window>
           ))}
@@ -444,7 +427,7 @@ const App: React.FC = () => {
     </div>
   );
 };
-
+// ... Other components (SettingsAppUI, NotificationContainer) remain same ...
 const SettingsAppUI: React.FC<{ os: OSContextType }> = ({ os }) => {
   return (
     <div className="h-full bg-[#0a0c10] text-white flex flex-col overflow-y-auto no-scrollbar">
@@ -462,7 +445,6 @@ const SettingsAppUI: React.FC<{ os: OSContextType }> = ({ os }) => {
                 </div>
              </div>
           </div>
-          
           <div className="space-y-4">
              <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] px-2">Remote Neural Protocol</p>
              <div className="p-6 glass rounded-[2rem] border-white/5 relative overflow-hidden group">
@@ -502,14 +484,16 @@ const NotificationContainer: React.FC<{ notifications: Notification[] }> = ({ no
         >
           <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
             n.type === 'error' ? 'bg-red-500' : 
-            n.type === 'success' ? 'bg-emerald-500' : 'bg-primary'
+            n.type === 'success' ? 'bg-emerald-500' : 
+            n.type === 'warning' ? 'bg-amber-500' : 'bg-primary'
           }`}></div>
           <div className={`mt-1 w-11 h-11 rounded-[1.2rem] flex items-center justify-center shrink-0 ${
             n.type === 'error' ? 'bg-red-500/10 text-red-500' : 
-            n.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/10 text-primary'
+            n.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 
+            n.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'
           }`}>
              <span className="material-symbols-outlined text-[24px]">
-                {n.type === 'error' ? 'error' : n.type === 'success' ? 'check_circle' : 'info'}
+                {n.type === 'error' ? 'error' : n.type === 'success' ? 'check_circle' : n.type === 'warning' ? 'warning' : 'info'}
              </span>
           </div>
           <div className="flex-1">
